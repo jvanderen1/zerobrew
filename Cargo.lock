@@ -2904,7 +2904,6 @@ dependencies = [
  "clap_complete",
  "console",
  "flate2",
- "futures",
  "indicatif",
  "libc",
  "serde_json",
