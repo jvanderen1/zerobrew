@@ -492,8 +492,8 @@ mod tests {
         )
     }
     use std::os::unix::fs::PermissionsExt;
-    use tempfile::TempDir;
     use std::sync::{Mutex, OnceLock};
+    use tempfile::TempDir;
 
     static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
     fn env_lock() -> std::sync::MutexGuard<'static, ()> {
