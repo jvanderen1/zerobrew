@@ -278,3 +278,62 @@ fn test_gc_removes_unused_store_entries() {
     assert_success(&t.zb(&["gc"]), "zb gc");
     assert_eq!(t.count_store_entries(), 0);
 }
+
+#[test]
+#[ignore = "integration test"]
+fn test_upgrade_all() {
+    let t = TestEnv::new();
+
+    // Install jq
+    assert_success(&t.zb(&["install", "jq"]), "zb install jq");
+    
+    // Downgrade version in db to simulate outdated package
+    let db_path = t.root.path().join("db/zb.sqlite3");
+    let status = Command::new("sqlite3")
+        .arg(&db_path)
+        .arg("UPDATE installed_kegs SET version = '0.0.1', store_key = 'fake_sha' WHERE name = 'jq';")
+        .status()
+        .expect("failed to run sqlite3");
+    assert!(status.success());
+    
+    // Run upgrade
+    let output = t.zb(&["upgrade"]);
+    assert_success(&output, "zb upgrade");
+    assert_stdout_contains(&output, "Upgrading jq");
+    
+    // Check it's no longer outdated by running upgrade again
+    let output = t.zb(&["upgrade"]);
+    assert_success(&output, "zb upgrade (again)");
+    assert_stdout_contains(&output, "All packages are up to date.");
+}
+
+#[test]
+#[ignore = "integration test"]
+fn test_upgrade_specific_formula() {
+    let t = TestEnv::new();
+
+    assert_success(&t.zb(&["install", "jq"]), "zb install jq");
+    
+    // Downgrade version in db to simulate outdated package
+    let db_path = t.root.path().join("db/zb.sqlite3");
+    let status = Command::new("sqlite3")
+        .arg(&db_path)
+        .arg("UPDATE installed_kegs SET version = '0.0.1', store_key = 'fake_sha' WHERE name = 'jq';")
+        .status()
+        .expect("failed to run sqlite3");
+    assert!(status.success());
+    
+    // We can also try upgrading a package that isn't installed.
+    let output = t.zb(&["upgrade", "nonexistent-pkg-abc-123"]);
+    assert!(!output.status.success(), "expected to fail upgrading nonexistent package");
+    
+    // Upgrade jq explicitly
+    let output = t.zb(&["upgrade", "jq"]);
+    assert_success(&output, "zb upgrade jq");
+    assert_stdout_contains(&output, "Upgrading jq");
+    
+    // Try upgrading it again, it should say it's up to date
+    let output = t.zb(&["upgrade", "jq"]);
+    assert_success(&output, "zb upgrade jq");
+    assert_stdout_contains(&output, "is already up to date");
+}

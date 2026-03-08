@@ -143,6 +143,14 @@ pub enum Commands {
         args: Vec<String>,
     },
     Update,
+    Upgrade {
+        #[arg(num_args = 0..)]
+        formulas: Vec<String>,
+        #[arg(long)]
+        no_link: bool,
+        #[arg(long, short = 's')]
+        build_from_source: bool,
+    },
     Outdated {
         /// Show only package names
         #[arg(short, long, conflicts_with_all = ["verbose", "json"])]
