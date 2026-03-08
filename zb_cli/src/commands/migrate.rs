@@ -91,11 +91,9 @@ pub async fn execute(
 
     let mut success_count = 0;
     let mut failed: Vec<String> = Vec::new();
-    // For the migration install, we will just call the standard `commands::install::execute`
-    // which handles its own multi-progress UI and batching.
+
     let formula_names: Vec<String> = packages.formulas.iter().map(|f| f.name.clone()).collect();
-    
-    // Attempt installation via the existing install command
+
     match crate::commands::install::execute(
         installer,
         formula_names.clone(),
@@ -106,8 +104,6 @@ pub async fn execute(
     .await
     {
         Ok(_) => {
-            // Because the install command already displays "Installed N packages", we just 
-            // query what was installed to count successes for the uninstall step.
             if let Ok(installed_kegs) = installer.list_installed() {
                 let installed_names: std::collections::HashSet<String> =
                     installed_kegs.into_iter().map(|k| k.name).collect();
@@ -119,11 +115,10 @@ pub async fn execute(
                     }
                 }
             } else {
-                success_count = formula_names.len(); // optimistic fallback
+                success_count = formula_names.len();
             }
         }
         Err(_) => {
-            // Assume failure. Re-check what was installed.
             if let Ok(installed_kegs) = installer.list_installed() {
                 let installed_names: std::collections::HashSet<String> =
                     installed_kegs.into_iter().map(|k| k.name).collect();
@@ -185,8 +180,7 @@ pub async fn execute(
         .map_err(ui_error)?;
 
     let mut uninstalled = 0;
-    
-    // Only uninstall packages that succeeded installation
+
     let mut uninstall_targets: Vec<String> = Vec::new();
     for pkg in &packages.formulas {
         if !failed.contains(&pkg.name) {
@@ -198,7 +192,11 @@ pub async fn execute(
         return Ok(());
     }
 
-    ui.step_start(format!("uninstalling {} formulas combined", uninstall_targets.len())).map_err(ui_error)?;
+    ui.step_start(format!(
+        "uninstalling {} formulas combined",
+        uninstall_targets.len()
+    ))
+    .map_err(ui_error)?;
 
     let mut args = vec!["uninstall"];
     if force {
@@ -217,16 +215,16 @@ pub async fn execute(
         Ok(s) if s.success() => {
             ui.step_ok().map_err(ui_error)?;
             uninstalled = uninstall_targets.len();
-            Vec::new() // no failures
+            Vec::new()
         }
         Ok(_) => {
             ui.step_fail().map_err(ui_error)?;
-            uninstall_targets.clone() // all failed
+            uninstall_targets.clone()
         }
         Err(e) => {
             ui.step_fail().map_err(ui_error)?;
             ui.error(e).map_err(ui_error)?;
-            uninstall_targets.clone() // all failed
+            uninstall_targets.clone()
         }
     };
 
