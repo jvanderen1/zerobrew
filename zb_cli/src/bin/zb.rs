@@ -73,8 +73,8 @@ async fn run(cli: Cli) -> Result<(), zb_core::Error> {
         Commands::Uninstall { formulas, all } => {
             commands::uninstall::execute(&mut installer, formulas, all, &mut ui)
         }
-        Commands::Migrate { yes, force } => {
-            commands::migrate::execute(&mut installer, yes, force, &mut ui).await
+        Commands::Migrate { force } => {
+            commands::migrate::execute(&mut installer, cli.auto_init, force, &mut ui).await
         }
         Commands::List => commands::list::execute(&mut installer),
         Commands::Info { formula } => commands::info::execute(&mut installer, formula),
@@ -85,7 +85,7 @@ async fn run(cli: Cli) -> Result<(), zb_core::Error> {
             verbose,
             json,
         } => commands::outdated::execute(&mut installer, quiet, verbose, json).await,
-        Commands::Reset { yes } => commands::reset::execute(&root, &prefix, yes, &mut ui),
+        Commands::Reset {} => commands::reset::execute(&root, &prefix, cli.auto_init, &mut ui),
         Commands::Run { formula, args } => {
             commands::run::execute(&mut installer, formula, args).await
         }

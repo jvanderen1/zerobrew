@@ -119,8 +119,6 @@ pub enum Commands {
         all: bool,
     },
     Migrate {
-        #[arg(long, short = 'y')]
-        yes: bool,
         #[arg(long)]
         force: bool,
     },
@@ -129,10 +127,7 @@ pub enum Commands {
         formula: String,
     },
     Gc,
-    Reset {
-        #[arg(long, short = 'y')]
-        yes: bool,
-    },
+    Reset {},
     Init {
         #[arg(long)]
         no_modify_path: bool,
