@@ -2,7 +2,6 @@ use console::style;
 use std::time::Instant;
 
 use super::install::{create_progress_callback, finish_progress_bars};
-use super::uninstall::uninstall_batch;
 use crate::ui::StdUi;
 use crate::utils::normalize_formula_name;
 
@@ -83,20 +82,17 @@ pub async fn execute(
         return Ok(());
     }
 
-    // 6. Perform upgrades: uninstall old, then install new
+    // 6. Record old versions before installing (for post-install cleanup)
+    let old_versions: Vec<(String, String)> = outdated
+        .iter()
+        .map(|p| (p.name.clone(), p.installed_version.clone()))
+        .collect();
+
+    // 7. Install new versions first (safe: old cellar folders remain until cleanup)
+    //    The DB upsert atomically updates the record and symlinks point to the new version.
     ui.blank_line().map_err(ui_error)?;
     let names_to_install: Vec<String> = outdated.iter().map(|p| p.name.clone()).collect();
 
-    // Uninstall outdated packages using shared batch helper
-    ui.heading("Removing outdated versions...")
-        .map_err(ui_error)?;
-    let errors = uninstall_batch(installer, &names_to_install, ui)?;
-    for (name, err) in &errors {
-        ui.warn(format!("Failed to uninstall {}: {}", name, err))
-            .map_err(ui_error)?;
-    }
-
-    // Install new versions with shared progress UI
     let plan = installer
         .plan_with_options(&names_to_install, build_from_source)
         .await?;
@@ -114,6 +110,22 @@ pub async fn execute(
 
     result?;
 
+    // 8. Post-install cleanup: remove old cellar entries now that new versions are confirmed
+    ui.heading("Cleaning up old versions...")
+        .map_err(ui_error)?;
+    let mut cleanup_warnings: Vec<String> = Vec::new();
+    for (name, old_version) in &old_versions {
+        let old_keg = installer.keg_path(name, old_version);
+        if old_keg.exists() {
+            if let Err(e) = std::fs::remove_dir_all(&old_keg) {
+                cleanup_warnings.push(format!(
+                    "Failed to remove old keg {}/{}: {}",
+                    name, old_version, e
+                ));
+            }
+        }
+    }
+
     let upgraded_count = outdated.len();
     let elapsed = start.elapsed();
     ui.blank_line().map_err(ui_error)?;
@@ -128,6 +140,15 @@ pub async fn execute(
         elapsed.as_secs_f64()
     ))
     .map_err(ui_error)?;
+
+    // Surface cleanup warnings after the success summary so they're visible
+    for warning in &cleanup_warnings {
+        ui.warn(warning).map_err(ui_error)?;
+    }
+    if !cleanup_warnings.is_empty() {
+        ui.note("Run `zb gc` to retry cleaning up old versions.")
+            .map_err(ui_error)?;
+    }
 
     Ok(())
 }

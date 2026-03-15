@@ -989,6 +989,31 @@ impl Installer {
         Ok(removed)
     }
 
+    /// Remove orphaned cellar kegs that don't match the currently installed version.
+    ///
+    /// This cleans up old version folders left behind when an upgrade was interrupted
+    /// or when cleanup failed after a successful upgrade.
+    pub fn cleanup_orphaned_kegs(&self) -> Result<Vec<(String, String)>, Error> {
+        let kegs_on_disk = self.cellar.list_kegs()?;
+        let installed = self.db.list_installed()?;
+
+        // Build a set of (name, version) that should exist
+        let installed_set: std::collections::HashSet<(String, String)> = installed
+            .iter()
+            .map(|k| (k.name.clone(), k.version.clone()))
+            .collect();
+
+        let mut removed = Vec::new();
+        for (name, version) in &kegs_on_disk {
+            if !installed_set.contains(&(name.clone(), version.clone())) {
+                self.cellar.remove_keg(name, version)?;
+                removed.push((name.clone(), version.clone()));
+            }
+        }
+
+        Ok(removed)
+    }
+
     /// Check if a formula is installed
     pub fn is_installed(&self, name: &str) -> bool {
         self.db.get_installed(name).is_some()

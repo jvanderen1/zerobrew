@@ -106,6 +106,42 @@ impl Cellar {
 
         Ok(())
     }
+
+    /// List all (name, version) pairs present in the cellar directory.
+    pub fn list_kegs(&self) -> Result<Vec<(String, String)>, Error> {
+        let mut kegs = Vec::new();
+
+        let entries = match fs::read_dir(&self.cellar_dir) {
+            Ok(entries) => entries,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(kegs),
+            Err(e) => {
+                return Err(Error::store("failed to read cellar directory")(e));
+            }
+        };
+
+        for name_entry in entries {
+            let name_entry =
+                name_entry.map_err(Error::store("failed to read cellar entry"))?;
+            if !name_entry.path().is_dir() {
+                continue;
+            }
+            let name = name_entry.file_name().to_string_lossy().to_string();
+
+            if let Ok(versions) = fs::read_dir(name_entry.path()) {
+                for version_entry in versions {
+                    let version_entry = version_entry
+                        .map_err(Error::store("failed to read version entry"))?;
+                    if version_entry.path().is_dir() {
+                        let version =
+                            version_entry.file_name().to_string_lossy().to_string();
+                        kegs.push((name.clone(), version));
+                    }
+                }
+            }
+        }
+
+        Ok(kegs)
+    }
 }
 
 /// Find the bottle content directory inside a store entry.

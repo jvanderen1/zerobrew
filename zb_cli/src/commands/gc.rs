@@ -20,5 +20,25 @@ pub fn execute(installer: &mut zb_io::Installer) -> Result<(), zb_core::Error> {
         );
     }
 
+    // Clean up orphaned cellar kegs (old versions left behind by upgrades)
+    let orphans = installer.cleanup_orphaned_kegs()?;
+
+    if !orphans.is_empty() {
+        for (name, version) in &orphans {
+            println!(
+                "    {} Removed old keg {}/{}",
+                style("✓").green(),
+                name,
+                version
+            );
+        }
+        println!(
+            "{} Removed {} orphaned cellar {}",
+            style("==>").cyan().bold(),
+            style(orphans.len()).green().bold(),
+            if orphans.len() == 1 { "keg" } else { "kegs" }
+        );
+    }
+
     Ok(())
 }
