@@ -91,6 +91,50 @@ mod tests {
         let result = Cli::try_parse_from(["zb", "outdated", "--verbose", "--json"]);
         assert!(result.is_err());
     }
+
+    #[test]
+    fn upgrade_no_args_parses() {
+        let cli = Cli::try_parse_from(["zb", "upgrade"]).unwrap();
+        assert!(matches!(
+            cli.command,
+            super::Commands::Upgrade {
+                ref formulas,
+                dry_run: false,
+                build_from_source: false,
+            } if formulas.is_empty()
+        ));
+    }
+
+    #[test]
+    fn upgrade_with_formulas_parses() {
+        let cli = Cli::try_parse_from(["zb", "upgrade", "jq", "curl"]).unwrap();
+        if let super::Commands::Upgrade { formulas, .. } = cli.command {
+            assert_eq!(formulas, vec!["jq", "curl"]);
+        } else {
+            panic!("expected Upgrade command");
+        }
+    }
+
+    #[test]
+    fn upgrade_dry_run_parses() {
+        let cli = Cli::try_parse_from(["zb", "upgrade", "--dry-run"]).unwrap();
+        assert!(matches!(
+            cli.command,
+            super::Commands::Upgrade { dry_run: true, .. }
+        ));
+    }
+
+    #[test]
+    fn upgrade_build_from_source_parses() {
+        let cli = Cli::try_parse_from(["zb", "upgrade", "-s"]).unwrap();
+        assert!(matches!(
+            cli.command,
+            super::Commands::Upgrade {
+                build_from_source: true,
+                ..
+            }
+        ));
+    }
 }
 
 #[derive(Subcommand)]
@@ -147,6 +191,17 @@ pub enum Commands {
         /// Output as JSON
         #[arg(long, conflicts_with_all = ["quiet", "verbose"])]
         json: bool,
+    },
+    Upgrade {
+        /// Specific formulas to upgrade (omit to upgrade all outdated)
+        #[arg(num_args = 0..)]
+        formulas: Vec<String>,
+        /// Show what would be upgraded without making changes
+        #[arg(long, short = 'n')]
+        dry_run: bool,
+        /// Build from source instead of using bottles
+        #[arg(long, short = 's')]
+        build_from_source: bool,
     },
 }
 
